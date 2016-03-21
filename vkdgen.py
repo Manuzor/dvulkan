@@ -256,8 +256,9 @@ version(NAMEPREFIXLoadFromDerelict) {
 		print("}", file=self.typesFile)
 	
 	def genGroup(self, groupinfo, name):
-		super().genGroup(groupinfo, name)
-		print("enum %s {" % name, file=self.typesFile)
+		enumName = name
+		super().genGroup(groupinfo, enumName)
+		print("enum %s {" % enumName, file=self.typesFile)
 		
 		expand = "expand" in groupinfo.elem.attrib
 		
@@ -265,10 +266,12 @@ version(NAMEPREFIXLoadFromDerelict) {
 		maxName = None
 		minValue = float("+inf")
 		maxValue = float("-inf")
+		aliases = []
 		for elem in groupinfo.elem.findall("enum"):
 			(numval, strval) = self.enumToValue(elem, True)
 			name = elem.get("name")
 			print("\t%s = %s," % (name, strval), file=self.typesFile)
+			aliases.append(name)
 			
 			if expand:
 				if numval < minValue:
@@ -280,12 +283,29 @@ version(NAMEPREFIXLoadFromDerelict) {
 		
 		if expand:
 			prefix = groupinfo.elem.attrib["expand"]
-			print("\t%s_BEGIN_RANGE = %s," % (prefix, minName), file=self.typesFile)
-			print("\t%s_END_RANGE = %s," % (prefix, maxName), file=self.typesFile)
-			print("\t%s_RANGE_SIZE = (%s - %s + 1)," % (prefix, maxName, minName), file=self.typesFile)
-			print("\t%s_MAX_ENUM = 0x7FFFFFFF," % prefix, file=self.typesFile)
+			alias = "%s_BEGIN_RANGE" % prefix
+			print("\t%s = %s," % (alias, minName), file=self.typesFile)
+			aliases.append(alias)
+
+			alias = "%s_END_RANGE" % prefix
+			print("\t%s = %s," % (alias, maxName), file=self.typesFile)
+			aliases.append(alias)
+
+			alias = "%s_RANGE_SIZE" % prefix
+			print("\t%s = (%s - %s + 1)," % (alias, maxName, minName), file=self.typesFile)
+			aliases.append(alias)
+
+			alias = "%s_MAX_ENUM" % prefix
+			print("\t%s = 0x7FFFFFFF," % alias, file=self.typesFile)
+			aliases.append(alias)
+
 		print("}", file=self.typesFile)
-	
+
+		if self.genOpts.genenumaliases:
+			for alias in aliases:
+				print("alias %s = %s.%s;" % (alias, enumName, alias), file=self.typesFile)
+		print("", file=self.typesFile)
+
 	def genEnum(self, enuminfo, name):
 		super().genEnum(enuminfo, name)
 		_,strVal = self.enumToValue(enuminfo.elem, False)
@@ -307,6 +327,7 @@ class DGeneratorOptions(GeneratorOptions):
 	def __init__(self, *args, **kwargs):
 		self.pkgprefix = kwargs.pop("pkgprefix")
 		self.nameprefix = kwargs.pop("nameprefix")
+		self.genenumaliases = kwargs.pop("genenumaliases")
 		super().__init__(*args, **kwargs)
 
 if __name__ == "__main__":
@@ -316,6 +337,7 @@ if __name__ == "__main__":
 	parser.add_argument("outfolder")
 	parser.add_argument("--pkgprefix", default="dvulkan")
 	parser.add_argument("--nameprefix", default="DVulkan")
+	parser.add_argument("--genenumaliases", action="store_true", help="Whether to generate enum aliases or not. Default is False.")
 	
 	args = parser.parse_args()
 	
@@ -330,6 +352,7 @@ if __name__ == "__main__":
 		emitversions=".*",
 		pkgprefix=args.pkgprefix,
 		nameprefix=args.nameprefix,
+		genenumaliases=args.genenumaliases,
 		#defaultExtensions="defaultExtensions",
 		addExtensions=r".*",
 		removeExtensions = r"VK_KHR_.*_surface$",
