@@ -158,7 +158,7 @@ struct NAMEPREFIXLoader {
 		
 		print("""	}
 	
-	void loadAllFunctions(VkDevice device) {
+	static void loadAllFunctions(VkDevice device) {
 		assert(vkGetDeviceProcAddr !is null, "reload(VkDevice) must be called after reload(VkInstance)");
 """, file=self.dynamicFile)
 		
